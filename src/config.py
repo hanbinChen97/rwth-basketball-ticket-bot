@@ -19,6 +19,7 @@ class UserInfo:
 @dataclass
 class Config:
     target_url: str
+    kurs_row: int
     user_headers: dict
     user_info: UserInfo
 
@@ -49,6 +50,7 @@ def load_config(config_path: str = "config/settings.toml") -> Config:
     
     return Config(
         target_url=data.get("TARGET_URL", ""),
+        kurs_row=int(data.get("kursRow", 0)),
         user_headers=data.get("USER_HEADERS", {}),
         user_info=user_info
     )

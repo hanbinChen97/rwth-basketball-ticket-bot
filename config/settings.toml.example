@@ -18,4 +18,6 @@ studentId = "123456"
 email = "max.mustermann@rwth-aachen.de"
 phone = "0123456789"
 acceptTerms = true
-kursnr = "1234567" # Default Kursnr for testing
+
+# which row
+kursRow = "3" 

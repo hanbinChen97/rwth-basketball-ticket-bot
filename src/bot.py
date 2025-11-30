@@ -1,3 +1,8 @@
+''' 
+uv run 
+''' 
+
+
 import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -99,6 +104,95 @@ def extract_booking_info_from_row(row: Any, base_url: str) -> Optional[Dict[str,
 
     logger.warning("Row found but no recognized booking button or link")
     return None
+
+def verify_page_identity(soup: BeautifulSoup) -> bool:
+    """
+    Check if the page contains the specific header:
+    <div class="bs_head" role="heading">Basketball Spielbetrieb</div>
+    """
+    header = soup.find('div', class_='bs_head', role='heading')
+
+    if header and "Basketball Spielbetrieb" in header.get_text():
+        logger.info("Page identity verified: Basketball Spielbetrieb")
+        return True
+        
+    logger.error("Page identity verification failed")
+    return False
+
+def extract_button_content(soup: BeautifulSoup, row_index: int) -> Optional[str]:
+    """
+    Extract the content of the button in the 9th cell (index 8) of the specified row.
+    """
+    courses_table = soup.find('table', class_='bs_kurse')
+    if not courses_table:
+        logger.error("Could not find course table (table.bs_kurse)")
+        return None
+    
+    rows = courses_table.find_all('tr')
+    # Filter out header row if it's included in find_all('tr') usually it is inside thead, 
+    # but find_all('tr') on table returns all.
+    # Based on HTML, the first row is in thead. The body rows start after.
+    # Let's be safe and look for tbody if possible, or just skip the first one if it's a header.
+    
+    tbody = courses_table.find('tbody')
+    if tbody:
+        rows = tbody.find_all('tr')
+    else:
+        # Fallback: skip the first row if it contains 'th'
+        all_rows = courses_table.find_all('tr')
+        rows = [r for r in all_rows if not r.find('th')]
+
+    if row_index < 0 or row_index >= len(rows):
+        logger.error(f"Row index {row_index} out of bounds. Found {len(rows)} rows.")
+        return None
+    
+    target_row = rows[row_index]
+    cells = target_row.find_all('td')
+    
+    # 9th cell is index 8
+    if len(cells) <= 8:
+        logger.error(f"Row {row_index} does not have 9 cells.")
+        return None
+        
+    booking_cell = cells[8]
+    
+    # Check for input button
+    input_btn = booking_cell.find('input', type='submit')
+    if input_btn:
+        return input_btn.get('value')
+        
+    # Check for span (e.g. "ab 03.12., 19:30")
+    span_btn = booking_cell.find('span')
+    if span_btn:
+        text = span_btn.get_text(strip=True)
+        return " ".join(text.split())
+        
+    # Fallback: just text
+    text = booking_cell.get_text(strip=True)
+    return " ".join(text.split())
+
+def run_check(client: httpx.Client, config: Config) -> None:
+    """
+    Run the verification and extraction check.
+    """
+    logger.info(f"Navigating to target URL: {config.target_url}")
+    response = fetch_url(client, config.target_url)
+    if not response:
+        return
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    # 1. Verify Page
+    if not verify_page_identity(soup):
+        return
+        
+    # 2. Extract Button Content
+    content = extract_button_content(soup, config.kurs_row)
+    if content:
+        logger.info(f"Button content at row {config.kurs_row}: '{content}'")
+        print(f"RESULT: {content}") # Print to stdout for easy reading
+    else:
+        logger.error("Failed to extract button content")
 
 def find_course(client: httpx.Client, config: Config, kursnr: str) -> Optional[Dict[str, Any]]:
     """High-level function to find a course and return booking info."""

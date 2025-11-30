@@ -29,3 +29,11 @@ URL: 通常提交到当前页面的 URL (或 form 的 action URL)。
 
 
 # 第一个页面点击
+https://buchung.hsz.rwth-aachen.de/angebote/aktueller_zeitraum/_Basketball_Spielbetrieb.html?autoreload=1753005602101
+
+1. 检查元素
+<div class="bs_head" role="heading">Basketball Spielbetrieb</div>
+确认页面是否正确。
+
+2. soup 的 tbody 的 第三个 dr 的 第 9 个 tr 的 内容，是 button 的内容。
+有可能是 “ab 03.12., 19:30” 这种没到时间的情况，有可能是 “wartlist” 的 button，也可能是 “buchen” button。

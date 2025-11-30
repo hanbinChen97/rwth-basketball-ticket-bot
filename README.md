@@ -23,6 +23,8 @@
 ## 📖 Introduction
 
 This bot automates the process of booking sports slots at RWTH Aachen University. It uses **Python** and **httpx** to interact directly with the booking system, making it significantly faster and more reliable than browser-based automation.
+https://buchung.hsz.rwth-aachen.de/angebote/aktueller_zeitraum/_Basketball_Spielbetrieb.html?autoreload=1753005602101
+
 
 ## 📂 Project Structure
 
@@ -85,8 +87,7 @@ You can run the bot using `uv` (recommended) or directly with python.
 # Run with default Kursnr from config
 uv run python -m src.main
 
-# Run with a specific Kursnr (overrides config)
-uv run python -m src.main 1234567
+uv run pytest
 ```
 
 ## 🛠️ How it Works
