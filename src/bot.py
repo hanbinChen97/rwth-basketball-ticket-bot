@@ -9,6 +9,26 @@ from .config import Config, UserInfo
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Constants for Form Fields and Button Texts
+# TODO: Update these values once the actual HTML content is confirmed.
+FIELD_MAPPING = {
+    'sex': {'male': 'M', 'female': 'W'}, # Value mapping for gender
+    'firstname': 'BS_F1100',
+    'lastname': 'BS_F1200',
+    'street': 'BS_F1300',
+    'city': 'BS_F1400',
+    'status': 'BS_F1600',
+    'email': 'BS_F2000',
+    'phone': 'BS_F2100',
+    'matriculation': 'matr', # Substring match for name
+    'terms': 'tnbed'
+}
+
+BUTTON_TEXTS = {
+    'buchen': 'buchen',
+    'book_button_class': 'bs_btn_buchen'
+}
+
 def create_client(config: Config) -> httpx.Client:
     """Create and return a configured httpx Client."""
     return httpx.Client(
@@ -53,7 +73,7 @@ def extract_booking_info_from_row(row: Any, base_url: str) -> Optional[Dict[str,
         return None
         
     # Check for "buchen" button (Form)
-    book_button = booking_cell.find('input', class_='bs_btn_buchen')
+    book_button = booking_cell.find('input', class_=BUTTON_TEXTS['book_button_class'])
     if book_button:
         form = book_button.find_parent('form')
         if form:
@@ -134,7 +154,7 @@ def extract_form_submission_data(form: Any, base_url: str) -> Dict[str, Any]:
 def handle_buchen_step(client: httpx.Client, html_content: str, base_url: str) -> Optional[httpx.Response]:
     """Find and submit the 'Buchen' button on the popup page."""
     soup = BeautifulSoup(html_content, 'html.parser')
-    buchen_form = find_form_by_button_text(soup, 'buchen')
+    buchen_form = find_form_by_button_text(soup, BUTTON_TEXTS['buchen'])
     
     if not buchen_form:
         # Fallback: if only one form exists, it might be the one
@@ -167,13 +187,13 @@ def map_user_to_form_fields(form: Any, user: UserInfo) -> Dict[str, str]:
 
     # Standard fields mapping
     fields = {
-        'sex': 'M' if user.gender == 'männlich' else 'W',
-        get_name('BS_F1100'): user.first_name,
-        get_name('BS_F1200'): user.last_name,
-        get_name('BS_F1300'): user.address,
-        get_name('BS_F1400'): user.zip_city,
-        get_name('BS_F2000'): user.email,
-        get_name('BS_F2100'): user.phone,
+        'sex': FIELD_MAPPING['sex']['male'] if user.gender == 'männlich' else FIELD_MAPPING['sex']['female'],
+        get_name(FIELD_MAPPING['firstname']): user.first_name,
+        get_name(FIELD_MAPPING['lastname']): user.last_name,
+        get_name(FIELD_MAPPING['street']): user.address,
+        get_name(FIELD_MAPPING['city']): user.zip_city,
+        get_name(FIELD_MAPPING['email']): user.email,
+        get_name(FIELD_MAPPING['phone']): user.phone,
     }
     
     for name, value in fields.items():
@@ -181,7 +201,7 @@ def map_user_to_form_fields(form: Any, user: UserInfo) -> Dict[str, str]:
             data[name] = value
 
     # Status field (Select)
-    status_el = form.find(id='BS_F1600')
+    status_el = form.find(id=FIELD_MAPPING['status'])
     if status_el:
         status_name = status_el.get('name')
         for option in status_el.find_all('option'):
@@ -191,7 +211,7 @@ def map_user_to_form_fields(form: Any, user: UserInfo) -> Dict[str, str]:
 
     # Student ID (Dynamic)
     if user.status == 'S-RWTH':
-        matr_input = form.find('input', attrs={'name': lambda x: x and 'matr' in x.lower()})
+        matr_input = form.find('input', attrs={'name': lambda x: x and FIELD_MAPPING['matriculation'] in x.lower()})
         if matr_input:
             data[matr_input.get('name')] = user.student_id
             logger.info(f"Found matriculation field: {matr_input.get('name')}")
@@ -200,7 +220,7 @@ def map_user_to_form_fields(form: Any, user: UserInfo) -> Dict[str, str]:
 
     # Terms
     if user.accept_terms:
-        data['tnbed'] = '1'
+        data[FIELD_MAPPING['terms']] = '1'
         
     return data
 
@@ -233,7 +253,7 @@ def handle_confirmation_step(client: httpx.Client, html_content: str, base_url: 
         
     # Check if we need to click a button or if it's already done
     final_submit = conf_form.find('input', type='submit')
-    if final_submit and 'buchen' in final_submit.get('value', '').lower():
+    if final_submit and BUTTON_TEXTS['buchen'] in final_submit.get('value', '').lower():
         logger.info("Found final confirmation button. Submitting...")
         submission = extract_form_submission_data(conf_form, base_url)
         
